@@ -25,7 +25,7 @@ export default function KioskPage() {
   const [linkRequestToken, setLinkRequestToken] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [inputBuffer, setInputBuffer] = useState('');
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const resetToWaiting = useCallback(() => {
@@ -55,6 +55,10 @@ export default function KioskPage() {
     window.addEventListener('offline', updateOnlineStatus);
     updateOnlineStatus();
     resetToWaiting(); // 初期メッセージを設定
+    
+    // Set current time on client side to avoid hydration mismatch
+    setCurrentTime(new Date());
+
     return () => {
       window.removeEventListener('online', updateOnlineStatus);
       window.removeEventListener('offline', updateOnlineStatus);
@@ -63,11 +67,7 @@ export default function KioskPage() {
 
   const handleAttendance = useCallback(async (cardId: string) => {
     const result = await handleAttendanceByCardId(cardId);
-    if (result.status === 'unregistered') {
-      showTemporaryMessage(result.message, result.subMessage || '管理者に連絡してカードを登録してください。', 'error', 5000);
-    } else {
-      showTemporaryMessage(result.message, result.subMessage, result.status);
-    }
+    showTemporaryMessage(result.message, result.subMessage || '', result.status);
   }, [showTemporaryMessage]);
 
   const handleRegistration = useCallback(async (cardId: string) => {
@@ -204,8 +204,17 @@ export default function KioskPage() {
         <div className="font-bold text-lg text-foreground">IT部 勤怠管理システム</div>
         <div className="flex items-center gap-4">
             <div className="text-right">
-                <div className="font-mono text-lg">{currentTime.toLocaleTimeString('ja-JP')}</div>
-                <div className="text-xs text-muted-foreground">{currentTime.toLocaleDateString('ja-JP', { weekday: 'long' })}</div>
+                {currentTime ? (
+                  <>
+                    <div className="font-mono text-lg">{currentTime.toLocaleTimeString('ja-JP')}</div>
+                    <div className="text-xs text-muted-foreground">{currentTime.toLocaleDateString('ja-JP', { weekday: 'long' })}</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="font-mono text-lg">--:--:--</div>
+                    <div className="text-xs text-muted-foreground">--</div>
+                  </>
+                )}
             </div>
             <div className={cn("flex items-center gap-2 rounded-full px-3 py-1 text-xs", isOnline ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
                 {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
