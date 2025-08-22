@@ -10,6 +10,7 @@ import { CheckCircle, Nfc, QrCode, Wifi, WifiOff, XCircle, Loader2 } from 'lucid
 import { cn } from '@/lib/utils';
 import { collection, query, where, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type KioskMode = 'waiting' | 'register_prompt' | 'register_qr' | 'loading_qr';
 type TemporaryState = 'success' | 'error' | null;
@@ -24,13 +25,14 @@ export default function KioskPage() {
   const [linkRequestToken, setLinkRequestToken] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [inputBuffer, setInputBuffer] = useState('');
+  const [currentTime, setCurrentTime] = useState(new Date());
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const resetToWaiting = useCallback(() => {
     setMode('waiting');
     setTempState(null);
     setMessage('NFCタグをタッチしてください');
-    setSubMessage('');
+    setSubMessage('カードリーダーにタッチするか、IDをキーボードで入力してください');
     setQrCodeUrl('');
     setRegistrationUrl('');
     setLinkRequestToken(null);
@@ -52,16 +54,17 @@ export default function KioskPage() {
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
     updateOnlineStatus();
+    resetToWaiting(); // 初期メッセージを設定
     return () => {
       window.removeEventListener('online', updateOnlineStatus);
       window.removeEventListener('offline', updateOnlineStatus);
     };
-  }, []);
+  }, [resetToWaiting]);
 
   const handleAttendance = useCallback(async (cardId: string) => {
     const result = await handleAttendanceByCardId(cardId);
     if (result.status === 'unregistered') {
-      showTemporaryMessage(result.message, result.subMessage || '', 'error');
+      showTemporaryMessage(result.message, result.subMessage || '管理者に連絡してカードを登録してください。', 'error', 5000);
     } else {
       showTemporaryMessage(result.message, result.subMessage, result.status);
     }
@@ -82,8 +85,8 @@ export default function KioskPage() {
         setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(url)}`);
         setLinkRequestToken(token);
         setMode('register_qr');
-        setMessage('QRコードをスキャンしてカードを登録');
-        setSubMessage('ESCキーでキャンセル');
+        setMessage('QRコードをスキャンして登録');
+        setSubMessage('スマートフォンで読み取り、表示された指示に従ってください。');
 
     } catch (err) {
         console.error("登録リンク生成エラー:", err);
@@ -93,7 +96,7 @@ export default function KioskPage() {
 
  const processInput = useCallback((input: string) => {
     if (!isOnline) {
-      showTemporaryMessage('ネットワークがオフラインです', '接続を確認してください。', 'error');
+      showTemporaryMessage('ネットワークがオフラインです', '接続を確認してから、再度お試しください。', 'error');
       return;
     }
     const trimmedInput = input.trim();
@@ -117,12 +120,12 @@ export default function KioskPage() {
         e.preventDefault();
         setMode('register_prompt');
         setMessage('登録したいNFCタグをタッチしてください');
-        setSubMessage('');
+        setSubMessage('IDが読み取られると、登録用のQRコードが表示されます');
         setInputBuffer('');
         return;
       }
       
-      if (mode === 'register_qr' || mode === 'loading_qr') return;
+      if (mode === 'register_qr' || mode === 'loading_qr' || tempState !== null) return;
 
       if (e.key === 'Enter') {
         processInput(inputBuffer);
@@ -137,7 +140,7 @@ export default function KioskPage() {
       window.removeEventListener('keydown', handleKeyPress);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [inputBuffer, processInput, resetToWaiting, mode]);
+  }, [inputBuffer, processInput, resetToWaiting, mode, tempState]);
   
   useEffect(() => {
     if (mode === 'register_qr' && linkRequestToken) {
@@ -154,30 +157,35 @@ export default function KioskPage() {
       return () => unsubscribe();
     }
   }, [mode, linkRequestToken, showTemporaryMessage]);
+  
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const KioskIcon = () => {
-    const iconClass = "size-48 text-gray-400 transition-all duration-500";
-    if (tempState === 'success') return <CheckCircle className={cn(iconClass, "text-green-400")} />;
-    if (tempState === 'error') return <XCircle className={cn(iconClass, "text-red-400")} />;
+    const iconClass = "size-32 transition-all duration-500";
+    if (tempState === 'success') return <CheckCircle className={cn(iconClass, "text-green-500")} />;
+    if (tempState === 'error') return <XCircle className={cn(iconClass, "text-red-500")} />;
     
     switch (mode) {
       case 'waiting':
-        return <Nfc className={cn(iconClass, "animate-pulse")} />;
+        return <Nfc className={cn(iconClass, "text-primary animate-pulse")} />;
       case 'register_prompt':
-        return <QrCode className={cn(iconClass)} />;
+        return <QrCode className={cn(iconClass, "text-primary")} />;
       case 'loading_qr':
-          return <Loader2 className={cn(iconClass, "animate-spin")} />;
+          return <Loader2 className={cn(iconClass, "text-muted-foreground animate-spin")} />;
       default:
-        return <Nfc className={cn(iconClass, "animate-pulse")} />;
+        return <Nfc className={cn(iconClass, "text-primary animate-pulse")} />;
     }
   };
 
   const renderContent = () => {
     if (mode === 'register_qr' && qrCodeUrl) {
       return (
-        <div className="flex flex-col items-center gap-4 bg-white p-6 rounded-lg shadow-2xl">
-          <Image src={qrCodeUrl} alt="Registration QR Code" width={256} height={256} priority />
-          <p className="text-sm text-gray-800 break-all">{registrationUrl}</p>
+        <div className="flex flex-col items-center gap-4 bg-white p-6 rounded-lg shadow-inner">
+          <Image src={qrCodeUrl} alt="登録用QRコード" width={200} height={200} priority />
+          <p className="text-sm text-muted-foreground break-all">{registrationUrl}</p>
         </div>
       );
     }
@@ -186,31 +194,44 @@ export default function KioskPage() {
 
   const getSubMessage = () => {
     if(subMessage) return subMessage;
-    if(inputBuffer) return inputBuffer;
+    if(inputBuffer) return `ID: ${inputBuffer}`;
     return ' ';
   }
   
   return (
-    <div className="flex h-screen w-full flex-col items-center justify-between p-8 text-center text-white bg-gray-900 bg-gradient-to-br from-gray-900 via-black to-gray-900 overflow-hidden">
-       <div className="absolute top-4 right-4 flex items-center gap-2 text-lg font-medium text-gray-300">
-        {isOnline ? <Wifi className="text-green-400" /> : <WifiOff className="text-red-400" />}
-        <span>{isOnline ? 'オンライン' : 'オフライン'}</span>
-      </div>
-      
-      <div className="w-full" />
-
-      <div className="flex-grow flex flex-col items-center justify-center w-full max-w-4xl">
-        <div className="min-h-[256px] flex items-center justify-center mb-8 transition-all duration-500">
-          {renderContent()}
+    <div className="flex h-screen w-full flex-col bg-gradient-to-br from-background to-blue-50">
+      <header className="p-4 flex justify-between items-center text-sm">
+        <div className="font-bold text-lg text-foreground">IT部 勤怠管理システム</div>
+        <div className="flex items-center gap-4">
+            <div className="text-right">
+                <div className="font-mono text-lg">{currentTime.toLocaleTimeString('ja-JP')}</div>
+                <div className="text-xs text-muted-foreground">{currentTime.toLocaleDateString('ja-JP', { weekday: 'long' })}</div>
+            </div>
+            <div className={cn("flex items-center gap-2 rounded-full px-3 py-1 text-xs", isOnline ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
+                {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+                <span>{isOnline ? 'オンライン' : 'オフライン'}</span>
+            </div>
         </div>
-        <h1 className="text-7xl font-bold whitespace-pre-wrap transition-all duration-500">{message}</h1>
-        <p className="text-3xl text-gray-400 mt-4 h-10">{getSubMessage()}</p>
-      </div>
+      </header>
 
-      <div className="w-full text-xl text-gray-500 pb-4">
-        {mode === 'waiting' && !tempState && <p>新しいカードを登録するには <kbd className="p-1 px-2 bg-gray-700 rounded-md text-gray-300 font-mono">/</kbd> キーを押してください</p>}
-        {(mode === 'register_prompt' || mode === 'register_qr') && <p><kbd className="p-1 px-2 bg-gray-700 rounded-md text-gray-300 font-mono">ESC</kbd> キーでキャンセル</p>}
-      </div>
+      <main className="flex-grow flex flex-col items-center justify-center text-center p-4">
+        <Card className="w-full max-w-xl mx-auto shadow-xl">
+          <CardContent className="p-8 sm:p-12 space-y-6">
+            <div className="min-h-[200px] flex items-center justify-center transition-all duration-500">
+              {renderContent()}
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground transition-all duration-500">{message}</h1>
+              <p className="text-base sm:text-lg text-muted-foreground h-12">{getSubMessage()}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </main>
+      
+      <footer className="w-full text-center p-4 text-xs text-muted-foreground">
+        {mode === 'waiting' && !tempState && <p>新しいカードを登録するには <kbd className="p-1 px-2 bg-muted rounded-md text-foreground font-mono">/</kbd> キーを押してください。</p>}
+        {(mode === 'register_prompt' || mode === 'register_qr') && <p><kbd className="p-1 px-2 bg-muted rounded-md text-foreground font-mono">ESC</kbd> キーで待機画面に戻ります。</p>}
+      </footer>
     </div>
   );
 }
