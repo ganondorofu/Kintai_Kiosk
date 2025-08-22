@@ -131,6 +131,7 @@ export default function KioskPage() {
         processInput(inputBuffer);
         setInputBuffer(''); 
       } else if (e.key.length === 1 && /^[a-z0-9]+$/i.test(e.key)) {
+        setSubMessage(''); // 入力が始まったらサブメッセージをクリア
         setInputBuffer(prev => prev + e.key);
       }
     };
