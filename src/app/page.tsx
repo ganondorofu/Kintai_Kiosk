@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -197,7 +198,9 @@ export default function KioskPage() {
   }
 
   const getSubMessage = () => {
-    if (mode === 'register_prompt' && inputBuffer) return `ID: ${inputBuffer}`;
+    if ((mode === 'waiting' || mode === 'register_prompt') && inputBuffer) {
+      return `ID: ${inputBuffer}`;
+    }
     if (subMessage) return subMessage;
     return ' ';
   }
