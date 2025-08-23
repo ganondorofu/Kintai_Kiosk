@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -68,6 +69,31 @@ export default function RegisterForm({ user, accessToken, token, cardId }: Regis
 
   const onSubmit = async (values: RegisterFormValues) => {
     setLoading(true);
+
+    // 0. Check if cardId is already registered
+    try {
+      const usersRef = collection(db, 'users');
+      const cardQuery = query(usersRef, where('cardId', '==', cardId));
+      const cardQuerySnapshot = await getDocs(cardQuery);
+      if (!cardQuerySnapshot.empty) {
+        toast({
+          title: 'Registration Failed',
+          description: 'This card is already registered to another user.',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+    } catch (err) {
+      console.error('[RegisterForm] Card ID check failed:', err);
+      toast({
+        title: 'Verification Error',
+        description: 'Unable to verify card ID. Please try again.',
+        variant: 'destructive',
+      });
+      setLoading(false);
+      return;
+    }
     
     // 1. Verify GitHub Organization Membership
     const requiredOrg = process.env.NEXT_PUBLIC_GITHUB_ORG_NAME;
@@ -100,11 +126,11 @@ export default function RegisterForm({ user, accessToken, token, cardId }: Regis
 
       // 2. Find the link request
       const linkRequestsRef = collection(db, 'link_requests');
-      const q = query(linkRequestsRef, where('token', '==', token), where('status', '==', 'waiting'));
+      const q = query(linkRequestsRef, where('token', '==', token), where('status', '==', 'opened'));
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
-        toast({ title: 'Registration Failed', description: 'Invalid or expired registration link.', variant: 'destructive' });
+        toast({ title: 'Registration Failed', description: 'Invalid or expired registration link. Please try again from the kiosk.', variant: 'destructive' });
         setLoading(false);
         return;
       }
