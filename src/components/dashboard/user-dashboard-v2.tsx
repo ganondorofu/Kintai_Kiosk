@@ -30,7 +30,7 @@ export default function UserDashboardV2({ user }: UserDashboardProps) {
           こんにちは、{user.firstname}さん！
         </h1>
         <p className="text-gray-600">
-          IT勤怠管理システムダッシュボードです。
+          STEM研究部 勤怠管理システムダッシュボードです。
         </p>
         <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-500">
           <span>GitHubアカウント: {user.github}</span>

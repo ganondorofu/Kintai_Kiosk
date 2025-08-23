@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'IT勤怠管理システム - KIOSK',
-  description: 'IT部の勤怠管理システムキオスク',
+  title: 'STEM研究部 勤怠管理システム - KIOSK',
+  description: 'STEM研究部の勤怠管理システムキオスク',
 };
 
 export default function RootLayout({

@@ -11,9 +11,10 @@ import { cn } from '@/lib/utils';
 import { collection, query, where, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { QRCodeSVG } from 'qrcode.react';
 
 type KioskMode = 'waiting' | 'register_prompt' | 'register_qr' | 'loading_qr';
-type TemporaryState = 'success' | 'error' | null;
+type TemporaryState = 'success' | 'error' | 'unregistered' | null;
 
 export default function KioskPage() {
   const [mode, setMode] = useState<KioskMode>('waiting');
@@ -185,7 +186,7 @@ export default function KioskPage() {
     if (mode === 'register_qr' && qrCodeUrl) {
       return (
         <div className="flex flex-col items-center gap-4 bg-white p-6 rounded-lg shadow-inner">
-          <Image src={qrCodeUrl} alt="登録用QRコード" width={200} height={200} priority />
+          <QRCodeSVG value={qrCodeUrl} size={200} className="border p-4" />
           <p className="text-sm text-muted-foreground break-all">{registrationUrl}</p>
         </div>
       );
@@ -202,7 +203,7 @@ export default function KioskPage() {
   return (
     <div className="flex h-screen w-full flex-col bg-gradient-to-br from-background to-blue-50">
       <header className="p-4 flex justify-between items-center text-sm">
-        <div className="font-bold text-lg text-foreground">IT部 勤怠管理システム</div>
+        <div className="font-bold text-lg text-foreground">STEM研究部 勤怠管理システム</div>
          <div className={cn("flex items-center gap-2 rounded-full px-3 py-1 text-xs", isOnline ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
             {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
             <span>{isOnline ? 'オンライン' : 'オフライン'}</span>
