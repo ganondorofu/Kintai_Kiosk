@@ -2,8 +2,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { handleAttendanceByCardId, createLinkRequest, updateLinkRequestStatus, getAllUsers, createAttendanceLogV2 } from '@/lib/data-adapter';
-import type { AppUser, LinkRequest } from '@/types';
+import { handleAttendanceByCardId, createLinkRequest, updateLinkRequestStatus, getAllUsers, createAttendanceLogV2, getUserAttendanceLogsV2 } from '@/lib/data-adapter';
+import type { AppUser, LinkRequest, AttendanceLog } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { CheckCircle, Nfc, QrCode, Wifi, WifiOff, XCircle, Loader2, Contact, User, Search, LogIn, LogOut, CircleUserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 type KioskMode = 'waiting' | 'register_prompt' | 'register_qr' | 'loading_qr' | 'manual_attendance';
 type TemporaryState = 'success' | 'error' | 'unregistered' | null;
+type UserStatus = 'entry' | 'exit' | 'unknown' | 'loading';
 
 export default function KioskPage() {
   const [mode, setMode] = useState<KioskMode>('waiting');
@@ -33,6 +34,7 @@ export default function KioskPage() {
   const [filteredUsers, setFilteredUsers] = useState<AppUser[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
+  const [selectedUserStatus, setSelectedUserStatus] = useState<UserStatus>('unknown');
   const [selectedIndex, setSelectedIndex] = useState(-1);
   
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -50,6 +52,7 @@ export default function KioskPage() {
     setSearchQuery('');
     setSelectedUser(null);
     setSelectedIndex(-1);
+    setSelectedUserStatus('unknown');
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
   }, []);
   
@@ -97,6 +100,30 @@ export default function KioskPage() {
         showTemporaryMessage(result.message, result.subMessage || '', result.status as TemporaryState);
     }
   }, [showTemporaryMessage]);
+  
+  const fetchUserStatus = useCallback(async (userId: string) => {
+    setSelectedUserStatus('loading');
+    try {
+        const logs = await getUserAttendanceLogsV2(userId, undefined, undefined, 1);
+        if (logs.length > 0) {
+            setSelectedUserStatus(logs[0].type);
+        } else {
+            setSelectedUserStatus('exit'); // No logs means they are clocked out
+        }
+    } catch(e) {
+        console.error("Error fetching user status:", e);
+        setSelectedUserStatus('unknown');
+    }
+  }, []);
+  
+  useEffect(() => {
+    if (selectedUser) {
+        fetchUserStatus(selectedUser.uid);
+    } else {
+        setSelectedUserStatus('unknown');
+    }
+  }, [selectedUser, fetchUserStatus]);
+
 
   const handleManualAttendance = async (user: AppUser, type: 'entry' | 'exit') => {
     try {
@@ -125,12 +152,16 @@ export default function KioskPage() {
         setMode('register_qr');
         setMessage('QRコードをスキャンして登録');
         setSubMessage('スマートフォンで読み取り、表示された指示に従ってください。');
+        
+        // 1分後に自動で待機画面に戻る
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(resetToWaiting, 60000);
 
     } catch (err) {
         console.error("登録リンク生成エラー:", err);
         showTemporaryMessage('登録エラー', 'リンクを生成できませんでした。接続を確認してください。', 'error');
     }
-  }, [showTemporaryMessage]);
+  }, [showTemporaryMessage, resetToWaiting]);
 
   const processInput = useCallback((input: string) => {
     if (!isOnline) {
@@ -157,15 +188,17 @@ export default function KioskPage() {
       if(tempState) return;
 
       if(mode === 'manual_attendance') {
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          setSelectedIndex(prev => (prev < filteredUsers.length - 1 ? prev + 1 : prev));
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          setSelectedIndex(prev => (prev > 0 ? prev - 1 : 0));
-        } else if (e.key === 'Enter' && selectedIndex >= 0) {
-          e.preventDefault();
-          setSelectedUser(filteredUsers[selectedIndex]);
+        if (!selectedUser) {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setSelectedIndex(prev => (prev < filteredUsers.length - 1 ? prev + 1 : prev));
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setSelectedIndex(prev => (prev > 0 ? prev - 1 : 0));
+          } else if (e.key === 'Enter' && selectedIndex >= 0) {
+            e.preventDefault();
+            setSelectedUser(filteredUsers[selectedIndex]);
+          }
         }
         return;
       }
@@ -202,7 +235,7 @@ export default function KioskPage() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [inputBuffer, processInput, resetToWaiting, mode, tempState, subMessage, selectedIndex, filteredUsers]);
+  }, [inputBuffer, processInput, resetToWaiting, mode, tempState, subMessage, selectedIndex, filteredUsers, selectedUser]);
   
   useEffect(() => {
     if (mode === 'register_qr' && linkRequestToken) {
@@ -252,6 +285,19 @@ export default function KioskPage() {
         return <Nfc className={cn(iconClass, "text-primary animate-pulse")} />;
     }
   };
+  
+  const renderStatusBadge = () => {
+      if (selectedUserStatus === 'loading') {
+        return <Badge variant="secondary">確認中...</Badge>
+      }
+      if (selectedUserStatus === 'entry') {
+        return <Badge variant="default" className="bg-green-600">出勤中</Badge>
+      }
+      if (selectedUserStatus === 'exit') {
+        return <Badge variant="outline">退勤済み</Badge>
+      }
+      return null;
+  }
 
   const renderContent = () => {
     if (mode === 'register_qr' && qrCodeUrl) {
@@ -297,7 +343,10 @@ export default function KioskPage() {
              </>
           ) : (
             <div className="flex flex-col items-center gap-6 w-full">
-               <h3 className="text-2xl font-bold">{selectedUser.firstname} {selectedUser.lastname}</h3>
+               <div className='text-center'>
+                <h3 className="text-2xl font-bold">{selectedUser.firstname} {selectedUser.lastname}</h3>
+                <div className='mt-2'>{renderStatusBadge()}</div>
+               </div>
                <div className="grid grid-cols-2 gap-4 w-full">
                 <Button onClick={() => handleManualAttendance(selectedUser, 'entry')} size="lg" className="h-20 bg-green-600 hover:bg-green-700 flex flex-col gap-2">
                   <LogIn className="w-8 h-8"/> 出勤
@@ -342,7 +391,7 @@ export default function KioskPage() {
   return (
     <div className="flex h-screen w-full flex-col bg-gradient-to-br from-background to-blue-50">
       <header className="p-4 flex justify-between items-center text-sm">
-        <div className="font-bold text-lg text-foreground">{process.env.NEXT_PUBLIC_APP_NAME || 'STEM研究部 勤怠管理システム'}</div>
+        <div className="font-bold text-lg text-foreground">STEM研究部 勤怠管理システム</div>
          <div className={cn("flex items-center gap-2 rounded-full px-3 py-1 text-xs", isOnline ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
             {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
             <span>{isOnline ? 'オンライン' : 'オフライン'}</span>
