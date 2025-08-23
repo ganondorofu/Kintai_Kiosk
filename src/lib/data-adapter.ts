@@ -1361,6 +1361,27 @@ export const createLinkRequest = async (token: string): Promise<string> => {
   return docRef.id;
 };
 
+export const updateLinkRequestStatus = async (token: string, status: 'opened' | 'linked' | 'done', cardId?: string): Promise<void> => {
+    const q = query(collection(db, 'link_requests'), where('token', '==', token), limit(1));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        throw new Error('Link request not found.');
+    }
+
+    const docRef = snapshot.docs[0].ref;
+    const dataToUpdate: any = {
+        status,
+        updatedAt: serverTimestamp(),
+    };
+    if (cardId) {
+        dataToUpdate.cardId = cardId;
+    }
+
+    await updateDoc(docRef, dataToUpdate);
+}
+
+
 export const watchTokenStatus = (
   token: string,
   callback: (status: string, data?: LinkRequest) => void
@@ -1494,21 +1515,34 @@ export const handleAttendanceByCardId = async (cardId: string): Promise<{
     const userData = userDoc.data() as AppUser;
     const userId = userDoc.id;
 
-    // ユーザーの現在の勤怠ステータスを確認
-    const currentStatus = userData.status || 'inactive';
-    const isCurrentlyActive = currentStatus === 'active';
-    
-    const newStatus = isCurrentlyActive ? 'inactive' : 'active';
-    const logType: 'entry' | 'exit' = isCurrentlyActive ? 'exit' : 'entry';
-
-    const batch = writeBatch(db);
-
-    // 新しい勤怠ログを attendances に作成
+    // ユーザーの最新のログを取得
     const now = new Date();
     const { year, month, day } = getAttendancePath(now);
     const dateKey = `${year}-${month}-${day}`;
-    const logId = generateAttendanceLogId(userId);
-    const newLogRef = doc(db, 'attendances', dateKey, 'logs', logId);
+    
+    const newLogsRef = collection(db, 'attendances', dateKey, 'logs');
+    const qNew = query(newLogsRef, where('uid', '==', userId), orderBy('timestamp', 'desc'), limit(1));
+    const newLogSnapshot = await getDocs(qNew);
+    
+    let lastLogType: 'entry' | 'exit' | null = null;
+
+    if (!newLogSnapshot.empty) {
+        lastLogType = (newLogSnapshot.docs[0].data() as AttendanceLog).type;
+    } else {
+        // 新しいログがない場合、古いログを確認
+        const oldLogsRef = collection(db, 'attendance_logs');
+        const qOld = query(oldLogsRef, where('uid', '==', userId), orderBy('timestamp', 'desc'), limit(1));
+        const oldLogSnapshot = await getDocs(qOld);
+        if(!oldLogSnapshot.empty){
+            lastLogType = (oldLogSnapshot.docs[0].data() as AttendanceLog).type;
+        }
+    }
+    
+    const logType: 'entry' | 'exit' = lastLogType === 'entry' ? 'exit' : 'entry';
+    
+    const batch = writeBatch(db);
+    const newLogId = generateAttendanceLogId(userId);
+    const newLogRef = doc(db, 'attendances', dateKey, 'logs', newLogId);
 
     batch.set(newLogRef, {
       uid: userId,
@@ -1517,19 +1551,12 @@ export const handleAttendanceByCardId = async (cardId: string): Promise<{
       timestamp: serverTimestamp(),
     });
 
-    // ユーザーのステータスと最終活動時刻を更新
-    const userDocRef = doc(db, 'users', userId);
-    batch.update(userDocRef, {
-      status: newStatus,
-      last_activity: serverTimestamp(),
-    });
-
     await batch.commit();
 
     const userName = `${userData.lastname} ${userData.firstname}`;
     const actionMsg = logType === 'entry' ? '出勤を記録しました' : '退勤を記録しました';
 
-    return { status: 'success', message: `ようこそ、${userName}さん`, subMessage: actionMsg };
+    return { status: 'success', message: `${userName}さん、こんにちは！`, subMessage: actionMsg };
   } catch (err) {
     console.error("勤怠記録エラー:", err);
     return { status: 'error', message: 'エラーが発生しました', subMessage: 'もう一度お試しください' };
