@@ -185,7 +185,7 @@ export default function KioskPageV2() {
           </div>
           
           <CardTitle className="text-2xl font-bold text-gray-900">
-            IT勤怠管理システム
+            STEM研究部 勤怠管理システム
           </CardTitle>
           
           <div className="text-lg font-mono bg-gray-100 rounded p-3 mt-4">
