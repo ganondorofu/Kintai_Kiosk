@@ -1,5 +1,6 @@
 
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp, Timestamp, collection, addDoc, query, where, onSnapshot, getDocs, orderBy, limit, startAfter, QueryDocumentSnapshot, DocumentData, writeBatch } from 'firebase/firestore';
+
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, Timestamp, collection, addDoc, query, where, onSnapshot, getDocs, orderBy, limit, startAfter, QueryDocumentSnapshot, DocumentData, writeBatch, collectionGroup } from 'firebase/firestore';
 import { db } from './firebase';
 import type { AppUser, AttendanceLog, LinkRequest, Team, MonthlyAttendanceCache } from '@/types';
 import type { GitHubUser } from './oauth';
@@ -1503,7 +1504,7 @@ export const handleAttendanceByCardId = async (cardId: string): Promise<{
   subMessage?: string;
 }> => {
   try {
-    const usersRef = collection(db, 'users');
+    const usersRef = collectionGroup(db, 'users');
     const userQuery = query(usersRef, where('cardId', '==', cardId), limit(1));
     const userSnapshot = await getDocs(userQuery);
 
