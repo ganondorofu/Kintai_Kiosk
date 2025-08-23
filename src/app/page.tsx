@@ -14,6 +14,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 
 type KioskMode = 'waiting' | 'register_prompt' | 'register_qr' | 'loading_qr' | 'manual_attendance';
 type TemporaryState = 'success' | 'error' | 'unregistered' | null;
@@ -419,3 +420,4 @@ export default function KioskPage() {
     </div>
   );
 }
+
