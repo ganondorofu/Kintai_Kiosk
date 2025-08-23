@@ -203,31 +203,30 @@ export default function KioskPage() {
     <div className="flex h-screen w-full flex-col bg-gradient-to-br from-background to-blue-50">
       <header className="p-4 flex justify-between items-center text-sm">
         <div className="font-bold text-lg text-foreground">IT部 勤怠管理システム</div>
-        <div className="flex items-center gap-4">
-            <div className="text-right">
-                {currentTime ? (
-                  <>
-                    <div className="font-mono text-lg">{currentTime.toLocaleTimeString('ja-JP')}</div>
-                    <div className="text-xs text-muted-foreground">{currentTime.toLocaleDateString('ja-JP', { weekday: 'long' })}</div>
-                  </>
-                ) : (
-                  <>
-                    <div className="font-mono text-lg">--:--:--</div>
-                    <div className="text-xs text-muted-foreground">--</div>
-                  </>
-                )}
-            </div>
-            <div className={cn("flex items-center gap-2 rounded-full px-3 py-1 text-xs", isOnline ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
-                {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-                <span>{isOnline ? 'オンライン' : 'オフライン'}</span>
-            </div>
+         <div className={cn("flex items-center gap-2 rounded-full px-3 py-1 text-xs", isOnline ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
+            {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+            <span>{isOnline ? 'オンライン' : 'オフライン'}</span>
         </div>
       </header>
 
       <main className="flex-grow flex flex-col items-center justify-center text-center p-4">
         <Card className="w-full max-w-xl mx-auto shadow-xl">
           <CardContent className="p-8 sm:p-12 space-y-6">
-            <div className="min-h-[200px] flex items-center justify-center transition-all duration-500">
+            <div className="text-center mb-6">
+                {currentTime ? (
+                  <>
+                    <div className="font-mono text-5xl font-bold text-gray-800">{currentTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit'})}</div>
+                    <div className="text-sm text-muted-foreground">{currentTime.toLocaleDateString('ja-JP', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="font-mono text-5xl font-bold text-gray-800">--:--</div>
+                    <div className="text-sm text-muted-foreground">--</div>
+                  </>
+                )}
+            </div>
+
+            <div className="min-h-[160px] flex items-center justify-center transition-all duration-500">
               {renderContent()}
             </div>
             <div className="space-y-2">
@@ -238,9 +237,9 @@ export default function KioskPage() {
         </Card>
       </main>
       
-      <footer className="w-full text-center p-4 text-xs text-muted-foreground">
-        {mode === 'waiting' && !tempState && <p>新しいカードを登録するには <kbd className="p-1 px-2 bg-muted rounded-md text-foreground font-mono">/</kbd> キーを押してください。</p>}
-        {(mode === 'register_prompt' || mode === 'register_qr') && <p><kbd className="p-1 px-2 bg-muted rounded-md text-foreground font-mono">ESC</kbd> キーで待機画面に戻ります。</p>}
+      <footer className="w-full text-center p-4">
+        {mode === 'waiting' && !tempState && <p className="text-sm p-2 bg-gray-200 rounded-md inline-block">新しいカードを登録するには <kbd className="p-1 px-2 bg-muted rounded-md text-foreground font-mono">/</kbd> キーを押してください。</p>}
+        {(mode === 'register_prompt' || mode === 'register_qr') && <p className="text-sm p-2 bg-gray-200 rounded-md inline-block"><kbd className="p-1 px-2 bg-muted rounded-md text-foreground font-mono">ESC</kbd> キーで待機画面に戻ります。</p>}
       </footer>
     </div>
   );
