@@ -311,8 +311,24 @@ export default function KioskPage() {
         </div>
       );
     }
-
-    return <KioskIcon />;
+    
+    return (
+      <div className="flex flex-col items-center justify-center gap-8">
+        <div className="text-center">
+            {currentTime && (
+              <>
+                <div className="text-6xl font-bold font-mono tracking-wider text-gray-800">
+                  {currentTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+                <div className="text-lg text-gray-500">
+                  {currentTime.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+                </div>
+              </>
+            )}
+        </div>
+        <KioskIcon />
+      </div>
+    );
   }
 
   const getSubMessage = () => {
@@ -326,7 +342,7 @@ export default function KioskPage() {
   return (
     <div className="flex h-screen w-full flex-col bg-gradient-to-br from-background to-blue-50">
       <header className="p-4 flex justify-between items-center text-sm">
-        <div className="font-bold text-lg text-foreground">STEM研究部 勤怠管理システム</div>
+        <div className="font-bold text-lg text-foreground">{process.env.NEXT_PUBLIC_APP_NAME || 'STEM研究部 勤怠管理システム'}</div>
          <div className={cn("flex items-center gap-2 rounded-full px-3 py-1 text-xs", isOnline ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
             {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
             <span>{isOnline ? 'オンライン' : 'オフライン'}</span>
@@ -354,29 +370,3 @@ export default function KioskPage() {
     </div>
   );
 }
-```,
-  </change>
-  <change>
-    <file>src/components/ui/input.tsx</file>
-    <content><![CDATA[import * as React from "react"
-
-import { cn } from "@/lib/utils"
-
-const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
-  ({ className, type, ...props }, ref) => {
-    return (
-      <input
-        type={type}
-        className={cn(
-          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-          className
-        )}
-        ref={ref}
-        {...props}
-      />
-    )
-  }
-)
-Input.displayName = "Input"
-
-export { Input }
