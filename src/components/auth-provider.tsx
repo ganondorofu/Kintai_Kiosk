@@ -1,9 +1,9 @@
 
 "use client";
 
-import { createContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import type { User } from "firebase/auth";
-import { onAuthStateChanged, GithubAuthProvider } from "firebase/auth";
+import { onAuthStateChanged, GithubAuthProvider, signInWithRedirect, getRedirectResult } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { useToast } from '@/hooks/use-toast';
 import type { AppUser } from "@/types";
@@ -14,7 +14,6 @@ interface AuthContextType {
   appUser: AppUser | null;
   loading: boolean;
   accessToken: string | null;
-  setGitHubToken: (token: string) => void;
 }
 
 export const AuthContext = createContext<AuthContextType>({
@@ -22,8 +21,15 @@ export const AuthContext = createContext<AuthContextType>({
   appUser: null,
   loading: true,
   accessToken: null,
-  setGitHubToken: () => {},
 });
+
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (!context) {
+      throw new Error("useAuth must be used within an AuthProvider");
+    }
+    return context;
+};
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -32,75 +38,90 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // GitHubトークンを設定する関数
-  const setGitHubToken = useCallback((token: string) => {
-    console.log('[AuthProvider] Setting GitHub token:', token ? 'Token provided' : 'No token');
-    if (token) {
-      setAccessToken(token);
-      sessionStorage.setItem('github_access_token', token);
-      console.log('[AuthProvider] GitHub token saved and set');
-    }
-  }, []);
-
   useEffect(() => {
-    // 参考プロジェクトのパターンに従った認証状態監視
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
+    console.log('[AuthProvider] Setting up auth state listener and checking redirect result');
+
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        console.log('[AuthProvider] Auth state changed:', !!firebaseUser);
         setUser(firebaseUser);
         
-        // セッションからGitHubトークンを復元
-        const storedToken = sessionStorage.getItem('github_access_token');
-        if (storedToken) {
-          console.log('[AuthProvider] Restored GitHub token from session');
-          setAccessToken(storedToken);
-        } else {
-          console.log('[AuthProvider] No stored GitHub token found');
+        if (!firebaseUser) {
+          setAppUser(null);
+          setAccessToken(null);
+          sessionStorage.removeItem('github_access_token');
+          setLoading(false);
         }
-      } else {
-        console.log('[AuthProvider] User signed out');
-        setUser(null);
-        setAppUser(null);
-        setAccessToken(null);
-        sessionStorage.removeItem('github_access_token');
-        setLoading(false);
-      }
-    });
+      });
+
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          console.log('[AuthProvider] Redirect result found');
+          const credential = GithubAuthProvider.credentialFromResult(result);
+          if (credential) {
+            const token = credential.accessToken;
+            if (token) {
+              console.log('[AuthProvider] GitHub access token obtained');
+              setAccessToken(token);
+              sessionStorage.setItem('github_access_token', token);
+            }
+          }
+          setUser(result.user);
+        } else {
+            const storedToken = sessionStorage.getItem('github_access_token');
+            if (storedToken) {
+              console.log('[AuthProvider] Restored access token from storage');
+              setAccessToken(storedToken);
+            }
+        }
+      })
+      .catch((error) => {
+        console.error('[AuthProvider] Redirect result error:', error);
+        toast({
+          title: 'Authentication Error',
+          description: error.message || 'Failed to complete GitHub authentication',
+          variant: 'destructive'
+        });
+      })
+      .finally(() => {
+         // This is to make sure loading is set to false after redirect check, 
+         // even if onAuthStateChanged hasn't fired yet.
+         // But we should be careful to not set it to false too early.
+      });
 
     return () => unsubscribe();
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
-    // Firestoreからユーザーデータを取得（参考プロジェクトと同じパターン）
     if (user) {
-      console.log('[AuthProvider] User authenticated, fetching Firestore data');
       const userDocRef = doc(db, "users", user.uid);
       const unsubscribe = onSnapshot(
         userDocRef,
         (doc) => {
           if (doc.exists()) {
-            console.log('[AuthProvider] Firestore user data found');
             setAppUser({ uid: doc.id, ...doc.data() } as AppUser);
           } else {
-            console.log('[AuthProvider] No Firestore user data found');
-            setAppUser(null);
+            setAppUser(null); // User is authenticated but not in our DB yet
           }
           setLoading(false);
         },
         (error) => {
-          console.error("Error fetching user data:", error);
+          console.error("[AuthProvider] Error fetching user data:", error);
           setAppUser(null);
           setLoading(false);
         }
       );
       return () => unsubscribe();
     } else {
-      console.log('[AuthProvider] No user, setting loading to false');
-      setLoading(false);
+        // Only set loading to false if user is null (not just being checked)
+        if (auth.currentUser === null) {
+            setLoading(false);
+        }
     }
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, appUser, loading, accessToken, setGitHubToken }}>
+    <AuthContext.Provider value={{ user, appUser, loading, accessToken }}>
       {children}
     </AuthContext.Provider>
   );

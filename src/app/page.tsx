@@ -58,9 +58,13 @@ export default function KioskPage() {
     
     setCurrentTime(new Date());
 
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    
     return () => {
       window.removeEventListener('online', updateOnlineStatus);
       window.removeEventListener('offline', updateOnlineStatus);
+      clearInterval(timer);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [resetToWaiting]);
 
@@ -82,7 +86,7 @@ export default function KioskPage() {
         const token = uuidv4();
         await createLinkRequest(token);
         
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost';
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost';
         const url = `${baseUrl}/register?token=${token}&cardId=${cardId}`;
         setRegistrationUrl(url);
         setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(url)}`);
@@ -142,7 +146,6 @@ export default function KioskPage() {
     window.addEventListener('keydown', handleKeyPress);
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [inputBuffer, processInput, resetToWaiting, mode, tempState, subMessage]);
   
@@ -163,11 +166,6 @@ export default function KioskPage() {
     }
   }, [mode, linkRequestToken, showTemporaryMessage]);
   
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   const KioskIcon = () => {
     const iconClass = "size-32 transition-all duration-500";
     if (tempState === 'success') return <CheckCircle className={cn(iconClass, "text-green-500")} />;
@@ -199,7 +197,7 @@ export default function KioskPage() {
   }
 
   const getSubMessage = () => {
-    if (inputBuffer && tempState === null) return `ID: ${inputBuffer}`;
+    if (mode === 'register_prompt' && inputBuffer) return `ID: ${inputBuffer}`;
     if (subMessage) return subMessage;
     return ' ';
   }

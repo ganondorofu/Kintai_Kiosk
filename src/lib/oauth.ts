@@ -1,4 +1,7 @@
 // GitHub OAuth 直接実装
+import { signInWithRedirect, GithubAuthProvider } from "firebase/auth";
+import { auth } from './firebase';
+
 export interface GitHubUser {
   id: number;
   login: string;
@@ -13,22 +16,26 @@ export interface OAuthTokens {
   scope: string;
 }
 
-const GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!;
-// Since the callback page is removed, this might not be needed.
-// Keeping it for now in case it's used elsewhere.
-const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`; 
 
 // GitHub OAuth認証URLを生成
-export const getGitHubAuthUrl = (): string => {
-  const params = new URLSearchParams({
-    client_id: GITHUB_CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
-    scope: 'read:user user:email read:org',
-    state: generateRandomState(),
-  });
+export const getGitHubAuthUrl = (redirectUri?: string): string => {
+  const provider = new GithubAuthProvider();
+  provider.addScope('read:user');
+  provider.addScope('user:email');
+  provider.addScope('read:org');
   
-  return `https://github.com/login/oauth/authorize?${params.toString()}`;
+  if (redirectUri) {
+    sessionStorage.setItem('oauth_redirect_uri', redirectUri);
+  }
+
+  // We don't return a URL, we trigger the redirect directly
+  signInWithRedirect(auth, provider);
+
+  // This function won't return a string now, but we keep the signature for type consistency
+  // across the app. The redirect will happen before this is returned.
+  return '';
 };
+
 
 // ランダムなstate値を生成（CSRF攻撃防止）
 const generateRandomState = (): string => {
