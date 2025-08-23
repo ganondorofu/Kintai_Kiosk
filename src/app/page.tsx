@@ -2,11 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { handleAttendanceByCardId } from '@/lib/data-adapter';
-import { createLinkRequest, watchTokenStatus } from '@/lib/data-adapter';
+import { createLinkRequest, watchTokenStatus, updateLinkRequestStatus } from '@/lib/data-adapter';
 import type { LinkRequest } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
-import Image from 'next/image';
-import { CheckCircle, Nfc, QrCode, Wifi, WifiOff, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, Nfc, QrCode, Wifi, WifiOff, XCircle, Loader2, Contact } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { collection, query, where, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -40,7 +39,7 @@ export default function KioskPage() {
     setInputBuffer('');
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
   }, []);
-
+  
   const showTemporaryMessage = useCallback((mainMsg: string, subMsg = '', state: TemporaryState = 'success', duration = 3000) => {
     setMessage(mainMsg);
     setSubMessage(subMsg);
@@ -55,9 +54,8 @@ export default function KioskPage() {
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
     updateOnlineStatus();
-    resetToWaiting(); // 初期メッセージを設定
+    resetToWaiting();
     
-    // Set current time on client side to avoid hydration mismatch
     setCurrentTime(new Date());
 
     return () => {
@@ -68,7 +66,11 @@ export default function KioskPage() {
 
   const handleAttendance = useCallback(async (cardId: string) => {
     const result = await handleAttendanceByCardId(cardId);
-    showTemporaryMessage(result.message, result.subMessage || '', result.status);
+    if(result.status === 'unregistered') {
+        showTemporaryMessage(result.message, result.subMessage || '', 'unregistered');
+    } else {
+        showTemporaryMessage(result.message, result.subMessage || '', result.status);
+    }
   }, [showTemporaryMessage]);
 
   const handleRegistration = useCallback(async (cardId: string) => {
@@ -80,8 +82,8 @@ export default function KioskPage() {
         const token = uuidv4();
         await createLinkRequest(token);
         
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost';
-  const url = `${appUrl.replace(/\/+$/, '')}/register?token=${token}&cardId=${cardId}`;
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost';
+        const url = `${baseUrl}/register?token=${token}&cardId=${cardId}`;
         setRegistrationUrl(url);
         setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(url)}`);
         setLinkRequestToken(token);
@@ -95,7 +97,7 @@ export default function KioskPage() {
     }
   }, [showTemporaryMessage]);
 
- const processInput = useCallback((input: string) => {
+  const processInput = useCallback((input: string) => {
     if (!isOnline) {
       showTemporaryMessage('ネットワークがオフラインです', '接続を確認してから、再度お試しください。', 'error');
       return;
@@ -120,8 +122,8 @@ export default function KioskPage() {
       if (mode === 'waiting' && e.key === '/') {
         e.preventDefault();
         setMode('register_prompt');
-        setMessage('登録したいNFCタグをタッチしてください');
-        setSubMessage('IDが読み取られると、登録用のQRコードが表示されます');
+        setMessage('登録するカードのIDを入力してください');
+        setSubMessage('IDを入力してEnterキーを押してください');
         setInputBuffer('');
         return;
       }
@@ -132,7 +134,7 @@ export default function KioskPage() {
         processInput(inputBuffer);
         setInputBuffer(''); 
       } else if (e.key.length === 1 && /^[a-z0-9]+$/i.test(e.key)) {
-        setSubMessage(''); // 入力が始まったらサブメッセージをクリア
+        if(subMessage) setSubMessage(''); // 入力が始まったらサブメッセージをクリア
         setInputBuffer(prev => prev + e.key);
       }
     };
@@ -142,10 +144,11 @@ export default function KioskPage() {
       window.removeEventListener('keydown', handleKeyPress);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [inputBuffer, processInput, resetToWaiting, mode, tempState]);
+  }, [inputBuffer, processInput, resetToWaiting, mode, tempState, subMessage]);
   
   useEffect(() => {
     if (mode === 'register_qr' && linkRequestToken) {
+      updateLinkRequestStatus(linkRequestToken, 'opened').catch(err => console.error(err));
       const q = query(collection(db, "link_requests"), where("token", "==", linkRequestToken), limit(1));
       const unsubscribe = onSnapshot(q, (snapshot) => {
         if (snapshot.empty) return;
@@ -169,12 +172,13 @@ export default function KioskPage() {
     const iconClass = "size-32 transition-all duration-500";
     if (tempState === 'success') return <CheckCircle className={cn(iconClass, "text-green-500")} />;
     if (tempState === 'error') return <XCircle className={cn(iconClass, "text-red-500")} />;
+    if (tempState === 'unregistered') return <Contact className={cn(iconClass, "text-yellow-500")} />;
     
     switch (mode) {
       case 'waiting':
         return <Nfc className={cn(iconClass, "text-primary animate-pulse")} />;
       case 'register_prompt':
-        return <QrCode className={cn(iconClass, "text-primary")} />;
+        return <Nfc className={cn(iconClass, "text-primary")} />;
       case 'loading_qr':
           return <Loader2 className={cn(iconClass, "text-muted-foreground animate-spin")} />;
       default:
@@ -186,7 +190,7 @@ export default function KioskPage() {
     if (mode === 'register_qr' && qrCodeUrl) {
       return (
         <div className="flex flex-col items-center gap-4 bg-white p-6 rounded-lg shadow-inner">
-          <QRCodeSVG value={qrCodeUrl} size={200} className="border p-4" />
+          <QRCodeSVG value={registrationUrl} size={200} className="border p-4" />
           <p className="text-sm text-muted-foreground break-all">{registrationUrl}</p>
         </div>
       );
@@ -195,8 +199,8 @@ export default function KioskPage() {
   }
 
   const getSubMessage = () => {
-    if(subMessage) return subMessage;
-    if(inputBuffer) return `ID: ${inputBuffer}`;
+    if (inputBuffer && tempState === null) return `ID: ${inputBuffer}`;
+    if (subMessage) return subMessage;
     return ' ';
   }
   
@@ -221,13 +225,13 @@ export default function KioskPage() {
                   </>
                 ) : (
                   <>
-                    <div className="font-mono text-5xl font-bold text-gray-800">--:--</div>
-                    <div className="text-sm text-muted-foreground">--</div>
+                    <div className="font-mono text-5xl font-bold text-gray-800 animate-pulse bg-gray-200 rounded-md w-48 mx-auto">&nbsp;</div>
+                    <div className="text-sm text-muted-foreground mt-2 animate-pulse bg-gray-200 rounded-md w-64 mx-auto">&nbsp;</div>
                   </>
                 )}
             </div>
 
-            <div className="min-h-[160px] flex items-center justify-center transition-all duration-500">
+            <div className="min-h-[220px] flex items-center justify-center transition-all duration-500">
               {renderContent()}
             </div>
             <div className="space-y-2">
