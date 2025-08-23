@@ -124,23 +124,13 @@ export const getAllUsers = async (): Promise<AppUser[]> => {
 
     // 各ユーザーの最新の勤怠ステータスを取得
     const userStatusPromises = users.map(async (user) => {
-      const { year, month, day } = getAttendancePath(new Date());
-      const dateKey = `${year}-${month}-${day}`;
+      const logs = await getUserAttendanceLogsV2(user.uid, undefined, undefined, 1);
       
-      const q = query(
-        collection(db, 'attendances', dateKey, 'logs'),
-        where('uid', '==', user.uid),
-        orderBy('timestamp', 'desc'),
-        limit(1)
-      );
-      const logSnapshot = await getDocs(q);
-
-      if (!logSnapshot.empty) {
-        const lastLog = logSnapshot.docs[0].data() as AttendanceLog;
+      if (logs.length > 0) {
         return {
           ...user,
-          status: lastLog.type === 'entry' ? 'active' : 'inactive',
-          last_activity: lastLog.timestamp,
+          status: logs[0].type === 'entry' ? 'active' : 'inactive',
+          last_activity: logs[0].timestamp,
         };
       }
       return { ...user, status: 'inactive' };
@@ -389,6 +379,30 @@ export const getUserAttendanceLogsV2 = async (
   limitCount: number = 50
 ): Promise<AttendanceLog[]> => {
   try {
+    // If no date range, we are looking for the most recent log.
+    if (!startDate && !endDate) {
+      const now = new Date();
+      for (let i = 0; i < 365; i++) { // Check up to a year ago
+        const targetDate = new Date(now);
+        targetDate.setDate(now.getDate() - i);
+        const { year, month, day } = getAttendancePath(targetDate);
+        const dateKey = `${year}-${month}-${day}`;
+        
+        const dayLogsRef = collection(db, 'attendances', dateKey, 'logs');
+        const q = query(dayLogsRef, where('uid', '==', uid), orderBy('timestamp', 'desc'), limit(1));
+        const daySnapshot = await getDocs(q);
+
+        if (!daySnapshot.empty) {
+          const latestLog = daySnapshot.docs[0].data() as AttendanceLog;
+          latestLog.id = daySnapshot.docs[0].id;
+          return [latestLog];
+        }
+      }
+      // If no logs in new structure, fallback to old structure
+      return await getUserAttendanceLogs(uid, undefined, undefined, 1);
+    }
+
+
     const logs: AttendanceLog[] = [];
     const effectiveStartDate = startDate || new Date(0);
     const effectiveEndDate = endDate || new Date();
@@ -433,6 +447,7 @@ export const getUserAttendanceLogsV2 = async (
       }
     }
 
+    // Fallback to old logs if new logs are not enough
     if (logs.length < limitCount) {
       const oldLogs = await getUserAttendanceLogs(
         uid,
@@ -452,6 +467,7 @@ export const getUserAttendanceLogsV2 = async (
       .slice(0, limitCount);
   } catch (error) {
     console.error('新しい勤怠ログ取得エラー:', error);
+    // Fallback to old logs on error
     return await getUserAttendanceLogs(uid, startDate, endDate, limitCount);
   }
 };
