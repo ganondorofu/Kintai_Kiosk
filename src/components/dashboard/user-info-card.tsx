@@ -1,9 +1,9 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { AppUser, Team } from '@/types';
+import { convertToJapaneseGrade } from '@/lib/utils';
 
 interface UserInfoCardProps {
   user: AppUser;
@@ -26,17 +26,22 @@ export const UserInfoCard: React.FC<UserInfoCardProps> = ({ user, allTeams }) =>
   }, [user.teamId, allTeams]);
 
   const teamNameToDisplay = loading ? '読み込み中...' : (teamName || '未所属');
+  const gradeDisplay = user.grade ? convertToJapaneseGrade(user.grade) : '未設定';
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>ユーザー情報</CardTitle>
+        <CardTitle>あなたの情報</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
           <div className="flex justify-between items-center text-sm">
             <span className="text-muted-foreground">名前</span>
             <span className="font-semibold">{user.lastname} {user.firstname}</span>
+          </div>
+           <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">学年</span>
+            <span className="font-semibold">{gradeDisplay}</span>
           </div>
           <div className="flex justify-between items-center text-sm">
             <span className="text-muted-foreground">所属班</span>

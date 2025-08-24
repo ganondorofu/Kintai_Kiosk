@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -10,10 +9,10 @@ import type { AppUser } from '@/types';
 import type { DayStats } from '@/hooks/use-attendance-data';
 
 interface AttendanceCalendarProps {
-  currentUser: AppUser;
+  allUsers: AppUser[];
 }
 
-export function AttendanceCalendar({ currentUser }: AttendanceCalendarProps) {
+export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ allUsers }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dayStats, setDayStats] = useState<DayStats[]>([]);
@@ -26,7 +25,6 @@ export function AttendanceCalendar({ currentUser }: AttendanceCalendarProps) {
     getTotalAttendance
   } = useAttendanceData(currentDate);
 
-  // 月ナビゲーション
   const handleNavigateMonth = (direction: 'prev' | 'next') => {
     const newDate = new Date(currentDate);
     if (direction === 'prev') {
@@ -35,22 +33,15 @@ export function AttendanceCalendar({ currentUser }: AttendanceCalendarProps) {
       newDate.setMonth(currentDate.getMonth() + 1);
     }
     
-    // 選択状態をリセット
     setSelectedDate(null);
     setDayStats([]);
-    
-    // 日付を更新
     setCurrentDate(newDate);
   };
 
-  // 日付クリック処理
   const handleDateClick = async (date: Date) => {
-    // 即座にUIを更新（楽観的UI）
     setSelectedDate(date);
-    
-    // キャッシュから即座に表示を試行
     setLoading(true);
-    setDayStats([]); // 前のデータをクリア
+    setDayStats([]);
     
     try {
       const stats = await fetchDayStats(date);
@@ -63,12 +54,10 @@ export function AttendanceCalendar({ currentUser }: AttendanceCalendarProps) {
     }
   };
 
-  // ホバー時のプリロード（軽量化）
   const handleDateHover = (date: Date) => {
-    // 軽量なプリロード処理（必要に応じて実装）
+    // Preload data on hover if needed
   };
 
-  // データ再取得
   const handleRefresh = () => {
     fetchMonthlyData(true);
   };
@@ -93,7 +82,6 @@ export function AttendanceCalendar({ currentUser }: AttendanceCalendarProps) {
         />
       </div>
 
-      {/* 選択日の詳細統計 */}
       {selectedDate && (
         <DayDetail
           selectedDate={selectedDate}
