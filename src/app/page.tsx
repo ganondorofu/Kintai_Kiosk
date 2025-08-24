@@ -258,8 +258,8 @@ export default function KioskPage() {
   useEffect(() => {
     const lowerCaseQuery = searchQuery.toLowerCase();
     const filtered = allUsers.filter(user =>
-      user.firstname.toLowerCase().includes(lowerCaseQuery) ||
-      user.lastname.toLowerCase().includes(lowerCaseQuery) ||
+      (user.firstname || '').toLowerCase().includes(lowerCaseQuery) ||
+      (user.lastname || '').toLowerCase().includes(lowerCaseQuery) ||
       (user.github || '').toLowerCase().includes(lowerCaseQuery)
     );
     setFilteredUsers(filtered);
@@ -420,4 +420,3 @@ export default function KioskPage() {
     </div>
   );
 }
-
