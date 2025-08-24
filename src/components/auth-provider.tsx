@@ -3,17 +3,19 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import type { User } from "firebase/auth";
-import { onAuthStateChanged, GithubAuthProvider, signInWithRedirect, getRedirectResult } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
-import { useToast } from '@/hooks/use-toast';
+import { onAuthStateChanged, GithubAuthProvider, signInWithRedirect, getRedirectResult, signOut as firebaseSignOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
 import type { AppUser } from "@/types";
 import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 interface AuthContextType {
   user: User | null;
   appUser: AppUser | null;
   loading: boolean;
   accessToken: string | null;
+  signOut: () => void;
 }
 
 export const AuthContext = createContext<AuthContextType>({
@@ -21,6 +23,7 @@ export const AuthContext = createContext<AuthContextType>({
   appUser: null,
   loading: true,
   accessToken: null,
+  signOut: () => {},
 });
 
 export const useAuth = () => {
@@ -37,6 +40,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  const signOut = useCallback(() => {
+    sessionStorage.removeItem('github_access_token');
+    firebaseSignOut(auth);
+  }, []);
 
   useEffect(() => {
     console.log('[AuthProvider] Setting up auth state listener and checking redirect result');
@@ -94,24 +102,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (user) {
-      const userDocRef = doc(db, "users", user.uid);
-      const unsubscribe = onSnapshot(
-        userDocRef,
-        (doc) => {
-          if (doc.exists()) {
-            setAppUser({ uid: doc.id, ...doc.data() } as AppUser);
-          } else {
-            setAppUser(null); // User is authenticated but not in our DB yet
-          }
-          setLoading(false);
-        },
-        (error) => {
-          console.error("[AuthProvider] Error fetching user data:", error);
-          setAppUser(null);
-          setLoading(false);
-        }
-      );
-      return () => unsubscribe();
+      // For Kiosk, direct user data isn't displayed in a persistent way,
+      // but we still complete the auth flow. The appUser might be useful for some checks.
+      setLoading(false);
     } else {
         // Only set loading to false if user is null (not just being checked)
         if (auth.currentUser === null) {
@@ -121,7 +114,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, appUser, loading, accessToken }}>
+    <AuthContext.Provider value={{ user, appUser, loading, accessToken, signOut }}>
       {children}
     </AuthContext.Provider>
   );
