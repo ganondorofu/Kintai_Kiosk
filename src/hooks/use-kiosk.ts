@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -8,7 +9,7 @@ import { onSnapshot, query, collection, where, limit } from 'firebase/firestore'
 import { db } from '@/lib/firebase';
 
 export type KioskMode = 'waiting' | 'register_prompt' | 'register_qr' | 'loading_qr' | 'manual_attendance';
-export type TemporaryState = 'success' | 'error' | 'unregistered';
+export type TemporaryState = 'success' | 'error' | 'unregistered' | 'entry' | 'exit';
 export type UserStatus = 'entry' | 'exit' | 'unknown' | 'loading';
 
 interface KioskState {
@@ -81,7 +82,7 @@ export const useKiosk = () => {
         try {
           await createAttendanceLogV2(user.uid, type, user.cardId);
           const msg = `${user.firstname} ${user.lastname}さんの${type === 'entry' ? '出勤' : '退勤'}を記録しました。`;
-          showTemporaryMessage('記録しました', msg, 'success');
+          showTemporaryMessage('記録しました', msg, type);
         } catch (e) {
           showTemporaryMessage('エラー', '勤怠記録に失敗しました。', 'error');
         }
