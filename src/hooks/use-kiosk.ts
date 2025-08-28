@@ -142,13 +142,18 @@ export const useKiosk = () => {
         const trimmedInput = input.trim();
         if (trimmedInput.length < 3) return;
 
-        if (state.mode === 'waiting') {
+        // Clear any ongoing timeout when a new card is processed
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+        }
+
+        if (state.mode === 'waiting' || state.tempState) {
             handleAttendance(trimmedInput);
         } else if (state.mode === 'register_prompt') {
             handleRegistration(trimmedInput);
         }
         setState(prev => ({ ...prev, inputBuffer: '' }));
-    }, [state.mode, state.isOnline, handleAttendance, handleRegistration, showTemporaryMessage]);
+    }, [state.mode, state.isOnline, state.tempState, handleAttendance, handleRegistration, showTemporaryMessage]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -156,24 +161,31 @@ export const useKiosk = () => {
                 resetToWaiting();
                 return;
             }
-            if (state.tempState || state.mode === 'manual_attendance' || state.mode === 'register_qr' || state.mode === 'loading_qr') return;
-            
-            if (e.key === ' ') {
-                e.preventDefault();
-                if (state.inputBuffer === '') handleManualModeToggle();
-                return;
-            }
-            
-            if (e.key === '/') {
-                e.preventDefault();
-                setState(prev => ({ ...prev, mode: 'register_prompt', message: '登録するカードのIDを入力してください', subMessage: 'IDを入力してEnterキーを押してください', inputBuffer: '' }));
-                return;
+
+            // Block mode changes while a temp message is shown or in specific modes.
+            if (state.tempState || state.mode === 'register_qr' || state.mode === 'loading_qr' || state.mode === 'manual_attendance') {
+                 if (e.key === ' ' || e.key === '/') {
+                    e.preventDefault();
+                    return;
+                }
             }
 
+            // Always allow alphanumeric and Enter for card reading
             if (e.key === 'Enter') {
                 processInput(state.inputBuffer);
             } else if (e.key.length === 1 && /^[a-z0-9]+$/i.test(e.key)) {
-                setState(prev => ({ ...prev, subMessage: '', inputBuffer: prev.inputBuffer + e.key }));
+                if (state.mode !== 'manual_attendance') {
+                    setState(prev => ({ ...prev, subMessage: '', inputBuffer: prev.inputBuffer + e.key }));
+                }
+            } else if (e.key === ' ' || e.key === '/') {
+                 if (state.mode === 'waiting' && state.inputBuffer === '') {
+                    e.preventDefault();
+                    if (e.key === ' ') {
+                        handleManualModeToggle();
+                    } else if (e.key === '/') {
+                        setState(prev => ({ ...prev, mode: 'register_prompt', message: '登録するカードのIDを入力してください', subMessage: 'IDを入力してEnterキーを押してください', inputBuffer: '' }));
+                    }
+                }
             }
         };
 
