@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -97,7 +98,7 @@ export default function Kiosk() {
       <footer className="w-full text-center p-4">
         {mode === 'waiting' && !state.tempState && (
           <p className="text-sm p-2 bg-gray-200 rounded-md inline-block">
-            新しいカードを登録するには <kbd className="p-1 px-2 bg-muted rounded-md text-foreground font-mono">/</kbd> キー、手動打刻は <kbd className="p-1 px-2 bg-muted rounded-md text-foreground font-mono">スペース</kbd> キー
+            新しいカードを登録するには <kbd className="p-1 px-2 bg-muted rounded-md text-foreground font-mono">/</kbd> キー
           </p>
         )}
         {(mode === 'register_prompt' || mode === 'register_qr' || mode === 'manual_attendance') && (
