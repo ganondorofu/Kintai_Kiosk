@@ -1554,7 +1554,7 @@ export const handleAttendanceByCardId = async (cardId: string): Promise<{
     const userName = `${userData.lastname} ${userData.firstname}`;
     
     if (logType === 'entry') {
-      return { status: 'entry', message: `${userName}さん、おはようございます！`, subMessage: '出勤を記録しました' };
+      return { status: 'entry', message: `${userName}さん、こんにちは！`, subMessage: '出勤を記録しました' };
     } else {
       return { status: 'exit', message: `${userName}さん、お疲れ様でした！`, subMessage: '退勤を記録しました' };
     }
