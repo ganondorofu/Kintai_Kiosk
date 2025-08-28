@@ -1,3 +1,4 @@
+
 'use client';
 
 import { CheckCircle, Nfc, QrCode, Wifi, WifiOff, XCircle, Loader2, Contact, User, Search, LogIn, LogOut, CircleUserRound } from 'lucide-react';
@@ -11,6 +12,8 @@ interface KioskIconProps {
 
 export const KioskIcon = ({ mode, tempState }: KioskIconProps) => {
     const iconClass = "size-32 transition-all duration-500";
+    if (tempState === 'entry') return <LogIn className={cn(iconClass, "text-green-500")} />;
+    if (tempState === 'exit') return <LogOut className={cn(iconClass, "text-blue-500")} />;
     if (tempState === 'success') return <CheckCircle className={cn(iconClass, "text-green-500")} />;
     if (tempState === 'error') return <XCircle className={cn(iconClass, "text-red-500")} />;
     if (tempState === 'unregistered') return <Contact className={cn(iconClass, "text-yellow-500")} />;

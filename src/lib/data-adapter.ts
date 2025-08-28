@@ -380,29 +380,28 @@ export const getUserAttendanceLogsV2 = async (
 ): Promise<AttendanceLog[]> => {
   try {
     // If no date range, we are looking for the most recent log.
-    if (!startDate && !endDate) {
-      const now = new Date();
-      for (let i = 0; i < 365; i++) { // Check up to a year ago
-        const targetDate = new Date(now);
-        targetDate.setDate(now.getDate() - i);
-        const { year, month, day } = getAttendancePath(targetDate);
-        const dateKey = `${year}-${month}-${day}`;
-        
-        const dayLogsRef = collection(db, 'attendances', dateKey, 'logs');
-        const q = query(dayLogsRef, where('uid', '==', uid), orderBy('timestamp', 'desc'), limit(1));
-        const daySnapshot = await getDocs(q);
+    if (!startDate && !endDate && limitCount === 1) {
+        const now = new Date();
+        for (let i = 0; i < 365; i++) { // Check up to a year ago
+            const targetDate = new Date(now);
+            targetDate.setDate(now.getDate() - i);
+            const { year, month, day } = getAttendancePath(targetDate);
+            const dateKey = `${year}-${month}-${day}`;
+            
+            const dayLogsRef = collection(db, 'attendances', dateKey, 'logs');
+            const q = query(dayLogsRef, where('uid', '==', uid), orderBy('timestamp', 'desc'), limit(1));
+            const daySnapshot = await getDocs(q);
 
-        if (!daySnapshot.empty) {
-          const latestLog = daySnapshot.docs[0].data() as AttendanceLog;
-          latestLog.id = daySnapshot.docs[0].id;
-          return [latestLog];
+            if (!daySnapshot.empty) {
+                const latestLog = daySnapshot.docs[0].data() as AttendanceLog;
+                latestLog.id = daySnapshot.docs[0].id;
+                return [latestLog];
+            }
         }
-      }
-      // If no logs in new structure, fallback to old structure
-      return await getUserAttendanceLogs(uid, undefined, undefined, 1);
+        // If no logs in new structure, fallback to old structure
+        return await getUserAttendanceLogs(uid, undefined, undefined, 1);
     }
-
-
+    
     const logs: AttendanceLog[] = [];
     const effectiveStartDate = startDate || new Date(0);
     const effectiveEndDate = endDate || new Date();
@@ -1514,7 +1513,7 @@ export const getWorkdaysInRange = async (startDate: Date, endDate: Date): Promis
 };
 
 export const handleAttendanceByCardId = async (cardId: string): Promise<{
-  status: 'success' | 'error' | 'unregistered';
+  status: 'success' | 'error' | 'unregistered' | 'entry' | 'exit';
   message: string;
   subMessage?: string;
 }> => {
@@ -1531,30 +1530,13 @@ export const handleAttendanceByCardId = async (cardId: string): Promise<{
     const userData = userDoc.data() as AppUser;
     const userId = userDoc.id;
 
-    // ユーザーの最新のログを取得
+    const [latestLog] = await getUserAttendanceLogsV2(userId, undefined, undefined, 1);
+    
+    const logType: 'entry' | 'exit' = latestLog?.type === 'entry' ? 'exit' : 'entry';
+    
     const now = new Date();
     const { year, month, day } = getAttendancePath(now);
     const dateKey = `${year}-${month}-${day}`;
-    
-    const newLogsRef = collection(db, 'attendances', dateKey, 'logs');
-    const qNew = query(newLogsRef, where('uid', '==', userId), orderBy('timestamp', 'desc'), limit(1));
-    const newLogSnapshot = await getDocs(qNew);
-    
-    let lastLogType: 'entry' | 'exit' | null = null;
-
-    if (!newLogSnapshot.empty) {
-        lastLogType = (newLogSnapshot.docs[0].data() as AttendanceLog).type;
-    } else {
-        // 新しいログがない場合、古いログを確認
-        const oldLogsRef = collection(db, 'attendance_logs');
-        const qOld = query(oldLogsRef, where('uid', '==', userId), orderBy('timestamp', 'desc'), limit(1));
-        const oldLogSnapshot = await getDocs(qOld);
-        if(!oldLogSnapshot.empty){
-            lastLogType = (oldLogSnapshot.docs[0].data() as AttendanceLog).type;
-        }
-    }
-    
-    const logType: 'entry' | 'exit' = lastLogType === 'entry' ? 'exit' : 'entry';
     
     const batch = writeBatch(db);
     const newLogId = generateAttendanceLogId(userId);
@@ -1570,9 +1552,12 @@ export const handleAttendanceByCardId = async (cardId: string): Promise<{
     await batch.commit();
 
     const userName = `${userData.lastname} ${userData.firstname}`;
-    const actionMsg = logType === 'entry' ? '出勤を記録しました' : '退勤を記録しました';
-
-    return { status: 'success', message: `${userName}さん、こんにちは！`, subMessage: actionMsg };
+    
+    if (logType === 'entry') {
+      return { status: 'entry', message: `${userName}さん、おはようございます！`, subMessage: '出勤を記録しました' };
+    } else {
+      return { status: 'exit', message: `${userName}さん、お疲れ様でした！`, subMessage: '退勤を記録しました' };
+    }
   } catch (err) {
     console.error("勤怠記録エラー:", err);
     return { status: 'error', message: 'エラーが発生しました', subMessage: 'もう一度お試しください' };
