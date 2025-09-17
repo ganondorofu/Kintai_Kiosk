@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getNotifications } from '@/lib/data-adapter';
 import type { Notification } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Megaphone, AlertCircle, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -92,9 +92,6 @@ export const KioskNotifications = () => {
                                     <div className="flex-1">
                                         <p className="font-bold">{notification.title}</p>
                                         <p className="text-sm mt-1">{notification.content}</p>
-                                        <p className="text-xs text-right mt-2 opacity-70">
-                                            {notification.authorName || '管理者'} - {new Date(notification.createdAt.seconds * 1000).toLocaleString('ja-JP')}
-                                        </p>
                                     </div>
                                 </div>
                             </div>

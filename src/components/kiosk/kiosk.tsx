@@ -81,6 +81,10 @@ export default function Kiosk() {
           <span>{isOnline ? 'オンライン' : 'オフライン'}</span>
         </div>
       </header>
+      
+      <div className="w-full px-4 py-2">
+        <KioskNotifications />
+      </div>
 
       <main className="flex-grow flex flex-col items-center justify-center text-center p-4">
         <Card className="w-full max-w-2xl mx-auto shadow-xl transition-all duration-300">
@@ -97,7 +101,6 @@ export default function Kiosk() {
       </main>
 
       <footer className="w-full p-4 flex flex-col items-center gap-4">
-        <KioskNotifications />
         {mode === 'waiting' && !state.tempState && (
           <p className="text-sm p-2 bg-gray-200 rounded-md inline-block">
             新しいカードを登録するには <kbd className="p-1 px-2 bg-muted rounded-md text-foreground font-mono">/</kbd> キー
