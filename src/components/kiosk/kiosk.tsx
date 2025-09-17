@@ -6,6 +6,7 @@ import { useKiosk } from '@/hooks/use-kiosk';
 import { KioskIcon } from './kiosk-icon';
 import { KioskManualAttendance } from './kiosk-manual-attendance';
 import { KioskQrCode } from './kiosk-qr-code';
+import { KioskNotifications } from './kiosk-notifications';
 import { Card, CardContent } from '@/components/ui/card';
 import { Wifi, WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -95,7 +96,8 @@ export default function Kiosk() {
         </Card>
       </main>
 
-      <footer className="w-full text-center p-4">
+      <footer className="w-full p-4 flex flex-col items-center gap-4">
+        <KioskNotifications />
         {mode === 'waiting' && !state.tempState && (
           <p className="text-sm p-2 bg-gray-200 rounded-md inline-block">
             新しいカードを登録するには <kbd className="p-1 px-2 bg-muted rounded-md text-foreground font-mono">/</kbd> キー
