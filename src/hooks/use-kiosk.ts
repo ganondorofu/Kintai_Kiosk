@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { handleAttendanceByCardId, createLinkRequest, updateLinkRequestStatus, getAllUsers, createAttendanceLogV2, getUserAttendanceLogsV2 } from '@/lib/data-adapter';
+import { handleAttendanceByCardId, createLinkRequest, updateLinkRequestStatus, getAllUsers, createAttendanceLogV2 } from '@/lib/data-adapter';
 import type { AppUser, LinkRequest, AttendanceLog } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { onSnapshot, query, collection, where, limit } from 'firebase/firestore';
@@ -90,16 +90,13 @@ export const useKiosk = () => {
 
     const fetchUserStatus = useCallback(async (userId: string): Promise<UserStatus> => {
         try {
-            const logs = await getUserAttendanceLogsV2(userId, undefined, undefined, 1);
-            if (logs.length > 0) {
-                return logs[0].type;
-            }
-            return 'exit'; // No logs means they are clocked out
+            const user = allUsers.find(u => u.uid === userId);
+            return user?.status || 'exit';
         } catch(e) {
             console.error("Error fetching user status:", e);
             return 'unknown';
         }
-    }, []);
+    }, [allUsers]);
 
     const handleRegistration = useCallback(async (cardId: string) => {
         setState(prev => ({ ...prev, mode: 'loading_qr', message: '登録用リンクを生成中...', subMessage: 'しばらくお待ちください' }));
@@ -162,29 +159,35 @@ export const useKiosk = () => {
                 return;
             }
 
-            // Block mode changes while a temp message is shown or in specific modes.
-            if (state.tempState || state.mode === 'register_qr' || state.mode === 'loading_qr' || state.mode === 'manual_attendance') {
-                 if (e.key === ' ' || e.key === '/') {
-                    e.preventDefault();
-                    return;
-                }
-            }
-
-            // Always allow alphanumeric and Enter for card reading
+            // Allow input even when a temp message is shown.
             if (e.key === 'Enter') {
                 processInput(state.inputBuffer);
-            } else if (e.key.length === 1 && /^[a-z0-9]+$/i.test(e.key)) {
+                return; // Prevent other keydown handlers for Enter
+            }
+            
+            if (e.key.length === 1 && /^[a-z0-9]+$/i.test(e.key)) {
                 if (state.mode !== 'manual_attendance') {
-                    setState(prev => ({ ...prev, subMessage: '', inputBuffer: prev.inputBuffer + e.key }));
-                }
-            } else if (e.key === ' ' || e.key === '/') {
-                 if (state.mode === 'waiting' && state.inputBuffer === '') {
-                    e.preventDefault();
-                    if (e.key === ' ') {
-                        handleManualModeToggle();
-                    } else if (e.key === '/') {
-                        setState(prev => ({ ...prev, mode: 'register_prompt', message: '登録するカードのIDを入力してください', subMessage: 'IDを入力してEnterキーを押してください', inputBuffer: '' }));
+                     // Clear temp state on new input
+                    if (state.tempState) {
+                        setState(prev => ({ ...prev, tempState: null, message: 'NFCタグをタッチしてください', subMessage: 'カードリーダーにタッチするか、IDをキーボードで入力してください' }));
                     }
+                    setState(prev => ({ ...prev, inputBuffer: prev.inputBuffer + e.key }));
+                }
+                return;
+            }
+
+            // Block mode changes while a temp message is shown
+            if (state.tempState) {
+                return;
+            }
+
+            if (state.mode === 'waiting' && state.inputBuffer === '') {
+                if (e.key === ' ') {
+                    e.preventDefault();
+                    handleManualModeToggle();
+                } else if (e.key === '/') {
+                    e.preventDefault();
+                    setState(prev => ({ ...prev, mode: 'register_prompt', message: '登録するカードのIDを入力してください', subMessage: 'IDを入力してEnterキーを押してください', inputBuffer: '' }));
                 }
             }
         };

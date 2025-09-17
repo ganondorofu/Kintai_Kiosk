@@ -151,6 +151,8 @@ export default function RegisterForm({ user, accessToken, token, cardId }: Regis
         teamId: values.teamId,
         grade: values.grade,
         role: 'user', // Default role
+        status: 'exit', // Default status
+        lastStatusChangeAt: serverTimestamp(),
         createdAt: serverTimestamp(),
       });
 
