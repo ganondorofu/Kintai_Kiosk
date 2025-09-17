@@ -86,10 +86,10 @@ export default function Kiosk() {
         <KioskNotifications />
       </div>
 
-      <main className="flex-grow flex flex-col items-center justify-center text-center p-4">
+      <main className="flex-grow flex flex-col items-center justify-center text-center p-4 overflow-auto">
         <Card className="w-full max-w-2xl mx-auto shadow-xl transition-all duration-300">
           <CardContent className="p-8 sm:p-12 space-y-6">
-            <div className="min-h-[350px] flex items-center justify-center transition-all duration-500">
+            <div className="flex items-center justify-center transition-all duration-500">
               {renderContent()}
             </div>
             <div className="space-y-2">
