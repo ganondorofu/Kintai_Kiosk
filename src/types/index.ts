@@ -41,7 +41,7 @@ export interface LinkRequest {
   id?: string;              // Firestoreドキュメントは自動生成されるためオプショナル
   token: string;
   cardId?: string;          // 既存データ構造では待機中はcardIdがない
-  status: 'waiting' | 'linked' | 'done';
+  status: 'waiting' | 'opened' | 'linked' | 'done';
   uid?: string;             // リンク完了時のみ設定
   github?: string;          // 既存データ構造に合わせて追加
   createdAt: Timestamp;
@@ -82,4 +82,13 @@ export interface MonthlyAttendanceCache {
   lastCalculated: Timestamp;
   lastLogCount: number;     // 計算時点での出勤ログ総数（変更検知用）
   dataHash: string;         // データ変更検知用ハッシュ
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  content: string;
+  level: 'info' | 'warning' | 'important';
+  authorName?: string;
+  createdAt: Timestamp;
 }
