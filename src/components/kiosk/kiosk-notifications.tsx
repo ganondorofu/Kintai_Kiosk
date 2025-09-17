@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getNotifications } from '@/lib/data-adapter';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import type { Notification } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -36,17 +37,23 @@ export const KioskNotifications = () => {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const fetched = await getNotifications(5);
-        setNotifications(fetched);
-      } catch (error) {
-        console.error('Failed to fetch notifications:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchNotifications();
+    const notificationsRef = collection(db, 'notifications');
+    const q = query(notificationsRef, orderBy('createdAt', 'desc'), limit(5));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedNotifications = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Notification));
+      setNotifications(fetchedNotifications);
+      setLoading(false);
+    }, (error) => {
+      console.error('Failed to fetch notifications:', error);
+      setLoading(false);
+    });
+
+    // Cleanup subscription on component unmount
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -78,7 +85,7 @@ export const KioskNotifications = () => {
     <Card className="w-full max-w-2xl mx-auto shadow-lg overflow-hidden">
         <Carousel
             setApi={setApi}
-            plugins={[Autoplay({ delay: 5000 })]}
+            plugins={notifications.length > 1 ? [Autoplay({ delay: 5000 })] : []}
             className="w-full"
         >
             <CarouselContent>
