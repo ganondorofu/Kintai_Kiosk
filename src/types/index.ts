@@ -18,8 +18,8 @@ export interface AppUser {
   lastLoginAt?: Timestamp;  // OAuth統合用に追加
   createdAt?: Timestamp;    // 既存データにはない場合があるためオプショナル
   updatedAt?: Timestamp;    // 既存データ構造に合わせて追加
-  status?: 'active' | 'inactive'; // 出勤状況
-  last_activity?: Timestamp; // 最終活動時刻
+  status?: 'entry' | 'exit'; // 出勤状況
+  lastStatusChangeAt?: Timestamp; // 最終活動時刻
 }
 
 export interface Team {
@@ -89,6 +89,5 @@ export interface Notification {
   title: string;
   content: string;
   level: 'info' | 'warning' | 'important';
-  authorName?: string;
   createdAt: Timestamp;
 }

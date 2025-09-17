@@ -434,30 +434,38 @@ export const handleAttendanceByCardId = async (cardId: string): Promise<{
     const userData = userDoc.data() as AppUser;
     const userId = userDoc.id;
 
-    const [latestLog] = await getUserAttendanceLogsV2(userId, undefined, undefined, 1);
-    
-    const logType: 'entry' | 'exit' = latestLog?.type === 'entry' ? 'exit' : 'entry';
+    const currentStatus = userData.status || 'exit';
+    const newStatus: 'entry' | 'exit' = currentStatus === 'entry' ? 'exit' : 'entry';
     
     const now = new Date();
     const { year, month, day } = getAttendancePath(now);
     const dateKey = `${year}-${month}-${day}`;
     
     const batch = writeBatch(db);
+    
+    // 1. 新しい勤怠ログを追加
     const newLogId = generateAttendanceLogId(userId);
     const newLogRef = doc(db, 'attendances', dateKey, 'logs', newLogId);
 
     batch.set(newLogRef, {
       uid: userId,
       cardId: cardId,
-      type: logType,
+      type: newStatus,
       timestamp: serverTimestamp(),
+    });
+
+    // 2. ユーザーのステータスを更新
+    const userRef = doc(db, 'users', userId);
+    batch.update(userRef, {
+      status: newStatus,
+      lastStatusChangeAt: serverTimestamp()
     });
 
     await batch.commit();
 
     const userName = `${userData.lastname} ${userData.firstname}`;
     
-    if (logType === 'entry') {
+    if (newStatus === 'entry') {
       return { status: 'entry', message: `${userName}さん、こんにちは！`, subMessage: '出勤を記録しました' };
     } else {
       return { status: 'exit', message: `${userName}さん、お疲れ様でした！`, subMessage: '退勤を記録しました' };
