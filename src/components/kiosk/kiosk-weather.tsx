@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,7 +15,7 @@ export const KioskWeather = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const API_URL = 'https://9000-firebase-studio-1758705364813.cluster-m7dwy2bmizezqukxkuxd55k5ka.cloudworkstations.dev/api/wbgt';
+    const API_URL = 'https://stem-weather.vercel.app/api/wbgt';
 
     useEffect(() => {
         const fetchData = async () => {
