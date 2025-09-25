@@ -7,6 +7,7 @@ import { KioskIcon } from './kiosk-icon';
 import { KioskManualAttendance } from './kiosk-manual-attendance';
 import { KioskQrCode } from './kiosk-qr-code';
 import { KioskNotifications } from './kiosk-notifications';
+import { KioskWeather } from './kiosk-weather';
 import { Card, CardContent } from '@/components/ui/card';
 import { Wifi, WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -76,9 +77,12 @@ export default function Kiosk() {
     <div className="flex h-screen w-full flex-col bg-gradient-to-br from-background to-blue-50">
       <header className="p-4 flex justify-between items-center text-sm">
         <div className="font-bold text-lg text-foreground">STEM研究部 勤怠管理システム</div>
-        <div className={cn("flex items-center gap-2 rounded-full px-3 py-1 text-xs", isOnline ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
-          {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-          <span>{isOnline ? 'オンライン' : 'オフライン'}</span>
+        <div className="flex items-center gap-2">
+            <KioskWeather />
+            <div className={cn("flex items-center gap-2 rounded-full px-3 py-1 text-xs", isOnline ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
+            {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+            <span>{isOnline ? 'オンライン' : 'オフライン'}</span>
+            </div>
         </div>
       </header>
       
