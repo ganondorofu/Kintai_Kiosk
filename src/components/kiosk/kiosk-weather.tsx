@@ -25,11 +25,12 @@ export const KioskWeather = () => {
                 }
                 const data = await response.json();
                 
-                // Assuming API returns { value: 25.5, unit: "°C" } or just a number
                 if (typeof data === 'number') {
                     setWbgt({ value: data, unit: '°C' });
                 } else if (data && typeof data.value === 'number') {
                     setWbgt(data);
+                } else if (data && typeof data.wbgt === 'number') {
+                    setWbgt({ value: data.wbgt, unit: data.unit || '°C' });
                 } else {
                      throw new Error('Invalid data format from API');
                 }
