@@ -15,7 +15,7 @@ import { Loader2 } from 'lucide-react';
 import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { isMemberOfOrg } from '@/lib/github';
-import { getAllTeams } from '@/lib/data-adapter';
+import { getAllTeams, getAllUsers } from '@/lib/data-adapter';
 import type { Team } from '@/types';
 import type { GitHubUser } from '@/lib/oauth';
 
@@ -70,12 +70,13 @@ export default function RegisterForm({ user, accessToken, token, cardId }: Regis
   const onSubmit = async (values: RegisterFormValues) => {
     setLoading(true);
 
-    // 0. Check if cardId is already registered
+    // 0. Check if cardId is already registered (case-insensitive)
     try {
-      const usersRef = collection(db, 'users');
-      const cardQuery = query(usersRef, where('cardId', '==', cardId));
-      const cardQuerySnapshot = await getDocs(cardQuery);
-      if (!cardQuerySnapshot.empty) {
+      const allUsers = await getAllUsers();
+      const existingUser = allUsers.find(
+        (u) => u.cardId?.toLowerCase() === cardId.toLowerCase()
+      );
+      if (existingUser) {
         toast({
           title: 'Registration Failed',
           description: 'This card is already registered to another user.',

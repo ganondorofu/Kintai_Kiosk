@@ -422,19 +422,17 @@ export const handleAttendanceByCardId = async (cardId: string): Promise<{
   subMessage?: string;
 }> => {
   try {
-    const usersRef = collection(db, 'users');
-    const userQuery = query(usersRef, where('cardId', '==', cardId), limit(1));
-    const userSnapshot = await getDocs(userQuery);
+    const allUsers = await getAllUsers();
+    const targetUser = allUsers.find(
+      (user) => user.cardId?.toLowerCase() === cardId.toLowerCase()
+    );
 
-    if (userSnapshot.empty) {
+    if (!targetUser) {
       return { status: 'unregistered', message: '未登録のカードです', subMessage: '登録するには「/」キーを押してください' };
     }
-
-    const userDoc = userSnapshot.docs[0];
-    const userData = userDoc.data() as AppUser;
-    const userId = userDoc.id;
-
-    const currentStatus = userData.status || 'exit';
+    
+    const userId = targetUser.uid;
+    const currentStatus = targetUser.status || 'exit';
     const newStatus: 'entry' | 'exit' = currentStatus === 'entry' ? 'exit' : 'entry';
     
     const now = new Date();
@@ -463,7 +461,7 @@ export const handleAttendanceByCardId = async (cardId: string): Promise<{
 
     await batch.commit();
 
-    const userName = `${userData.lastname} ${userData.firstname}`;
+    const userName = `${targetUser.lastname} ${targetUser.firstname}`;
     
     if (newStatus === 'entry') {
       return { status: 'entry', message: `${userName}さん、こんにちは！`, subMessage: '出勤を記録しました' };
